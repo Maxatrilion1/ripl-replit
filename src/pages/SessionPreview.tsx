@@ -237,3 +237,5 @@ const SessionPreview = () => {
     </div>
   );
 };
+
+export default SessionPreview
