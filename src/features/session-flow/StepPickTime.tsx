@@ -25,6 +25,18 @@ export const StepPickTime = () => {
     if (isToday) {
       // For today, start from next quarter hour
       const nextQuarter = roundUpToQuarter();
+      
+      // Edge case: if it's very late (after 11 PM), suggest tomorrow instead
+      if (nextQuarter.getHours() >= 23) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(9, 0, 0, 0);
+        setTime("09:00");
+        // Could show a toast suggesting tomorrow instead
+        setAvailableTimes(["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]);
+        return;
+      }
+      
       const startTime = `${String(nextQuarter.getHours()).padStart(2, '0')}:${String(nextQuarter.getMinutes()).padStart(2, '0')}`;
       setAvailableTimes(buildQuarterHours(startTime, "23:45"));
       

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 interface SessionFlowState {
   // Step data
@@ -20,31 +19,24 @@ interface SessionFlowState {
   reset: () => void;
 }
 
-export const useSessionFlowStore = create<SessionFlowState>()(
-  persist(
-    (set) => ({
-      selectedCafe: null,
-      selectedDate: null,
-      selectedTime: null,
-      title: null,
-      slug: null,
-      sessionId: null,
-      
-      setCafe: (cafe) => set({ selectedCafe: cafe }),
-      setDate: (date) => set({ selectedDate: date }),
-      setTime: (time) => set({ selectedTime: time }),
-      setSessionData: (title, slug, sessionId) => set({ title, slug, sessionId }),
-      reset: () => set({
-        selectedCafe: null,
-        selectedDate: null,
-        selectedTime: null,
-        title: null,
-        slug: null,
-        sessionId: null,
-      }),
-    }),
-    {
-      name: 'session-flow-storage',
-    }
-  )
-);
+export const useSessionFlowStore = create<SessionFlowState>((set) => ({
+  selectedCafe: null,
+  selectedDate: null,
+  selectedTime: null,
+  title: null,
+  slug: null,
+  sessionId: null,
+  
+  setCafe: (cafe) => set({ selectedCafe: cafe }),
+  setDate: (date) => set({ selectedDate: date }),
+  setTime: (time) => set({ selectedTime: time }),
+  setSessionData: (title, slug, sessionId) => set({ title, slug, sessionId }),
+  reset: () => set({
+    selectedCafe: null,
+    selectedDate: null,
+    selectedTime: null,
+    title: null,
+    slug: null,
+    sessionId: null,
+  }),
+}));

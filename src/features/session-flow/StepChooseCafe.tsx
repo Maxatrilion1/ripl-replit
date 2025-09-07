@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Coffee, ArrowRight } from 'lucide-react';
+import { Check, ChevronsUpDown, Coffee, ArrowRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSessionFlowStore } from './store';
 
@@ -33,6 +33,9 @@ export const StepChooseCafe = () => {
     }
   };
 
+  const handleBack = () => {
+    navigate('/create-session');
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
@@ -102,15 +105,24 @@ export const StepChooseCafe = () => {
               </PopoverContent>
             </Popover>
 
-            <Button 
-              onClick={handleNext}
-              disabled={!selectedCafe}
-              className="w-full h-12 text-base"
-              size="lg"
-            >
-              Continue
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline"
+                onClick={handleBack}
+                className="flex-1 h-12"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              <Button 
+                onClick={handleNext}
+                disabled={!selectedCafe}
+                className="flex-1 h-12"
+              >
+                Continue
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

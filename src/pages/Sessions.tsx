@@ -134,7 +134,7 @@ const Sessions = () => {
             </p>
           </div>
           <Button asChild>
-            <Link to="/create-session">
+            <Link to="/create-session/cafe">
               <Plus className="w-4 h-4 mr-2" />
               Host a Session
             </Link>
@@ -171,7 +171,7 @@ const Sessions = () => {
               Be the first to host one in your area!
             </CardDescription>
             <Button asChild size="lg">
-              <Link to="/create-session">
+              <Link to="/create-session/cafe">
                 <Plus className="w-5 h-5 mr-2" />
                 Host the First Session
               </Link>

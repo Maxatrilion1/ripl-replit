@@ -37,7 +37,7 @@ export const Layout = () => {
           {/* Actions */}
           <div className="flex items-center gap-3">
             <Button asChild size="sm" className="hidden sm:flex">
-              <Link to="/create-session">
+              <Link to="/create-session/cafe">
                 <Plus className="w-4 h-4 mr-2" />
                 Host Session
               </Link>

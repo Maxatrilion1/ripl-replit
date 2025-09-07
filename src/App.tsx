@@ -11,7 +11,13 @@ import NotFound from "./pages/NotFound";
 import Session from "./pages/Session";
 import Invite from "./pages/Invite";
 import Profile from "./pages/Profile";
+import SessionPreview from "./pages/SessionPreview";
 import { Layout } from "@/components/Layout";
+import { StepChooseCafe } from "@/features/session-flow/StepChooseCafe";
+import { StepPickDay } from "@/features/session-flow/StepPickDay";
+import { StepPickTime } from "@/features/session-flow/StepPickTime";
+import { StepConfirm } from "@/features/session-flow/StepConfirm";
+import { SuccessShare } from "@/features/session-flow/SuccessShare";
 
 const queryClient = new QueryClient();
 
@@ -26,10 +32,16 @@ const App = () => (
           <Route path="/auth/onboarding" element={<Auth />} />
           <Route path="/auth/linkedin-confirm" element={<Auth />} />
           <Route path="/invite/:code" element={<Invite />} />
+          <Route path="/preview/:slug" element={<SessionPreview />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/create-session" element={<CreateSession />} />
+            <Route path="/create-session/cafe" element={<StepChooseCafe />} />
+            <Route path="/create-session/day" element={<StepPickDay />} />
+            <Route path="/create-session/time" element={<StepPickTime />} />
+            <Route path="/create-session/confirm" element={<StepConfirm />} />
+            <Route path="/create-session/success" element={<SuccessShare />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/sessions/:id" element={<Session />} />
             <Route path="*" element={<NotFound />} />

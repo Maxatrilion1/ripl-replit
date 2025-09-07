@@ -1,6 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
-
 export async function createUniqueSlug(base: string) {
+  const { supabase } = await import('@/integrations/supabase/client');
   const norm = base.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   let attempt = norm;
   let i = 1;

@@ -175,7 +175,7 @@ const Index = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg">
-              <Link to="/create-session">
+              <Link to="/create-session/cafe">
                 <Plus className="w-4 h-4 mr-2" />
                 Host a Session
               </Link>
@@ -224,7 +224,7 @@ const Index = () => {
               Be the first to host a cowork session in your area!
             </CardDescription>
             <Button asChild>
-              <Link to="/create-session">Host the First Session</Link>
+              <Link to="/create-session/cafe">Host the First Session</Link>
             </Button>
           </Card>
         ) : (
