@@ -19,37 +19,48 @@ import { StepPickTime } from "@/features/session-flow/StepPickTime";
 import { StepConfirm } from "@/features/session-flow/StepConfirm";
 import { SuccessShare } from "@/features/session-flow/SuccessShare";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/auth/onboarding" element={<Auth />} />
-          <Route path="/auth/linkedin-confirm" element={<Auth />} />
-          <Route path="/invite/:code" element={<Invite />} />
-          <Route path="/preview/:slug" element={<SessionPreview />} />
-          <Route path="/" element={<Index />} />
-          <Route element={<Layout />}>
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/create-session" element={<CreateSession />} />
-            <Route path="/create-session/cafe" element={<StepChooseCafe />} />
-            <Route path="/create-session/day" element={<StepPickDay />} />
-            <Route path="/create-session/time" element={<StepPickTime />} />
-            <Route path="/create-session/confirm" element={<StepConfirm />} />
-            <Route path="/create-session/success" element={<SuccessShare />} />
-            <Route path="/sessions" element={<Sessions />} />
-            <Route path="/sessions/:id" element={<Session />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  console.log('App component rendering...');
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/onboarding" element={<Auth />} />
+            <Route path="/auth/linkedin-confirm" element={<Auth />} />
+            <Route path="/invite/:code" element={<Invite />} />
+            <Route path="/preview/:slug" element={<SessionPreview />} />
+            <Route path="/" element={<Index />} />
+            <Route element={<Layout />}>
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/create-session" element={<CreateSession />} />
+              <Route path="/create-session/cafe" element={<StepChooseCafe />} />
+              <Route path="/create-session/day" element={<StepPickDay />} />
+              <Route path="/create-session/time" element={<StepPickTime />} />
+              <Route path="/create-session/confirm" element={<StepConfirm />} />
+              <Route path="/create-session/success" element={<SuccessShare />} />
+              <Route path="/sessions" element={<Sessions />} />
+              <Route path="/sessions/:id" element={<Session />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

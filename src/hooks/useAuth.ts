@@ -17,40 +17,47 @@ export const useAuth = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  console.log('🔐 useAuth: Hook initializing...');
+
   useEffect(() => {
-    // Set up auth state listener FIRST
+    console.log('🔐 useAuth: Setting up auth state listener...');
+    
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('[AUTH] onAuthStateChange', {
+        console.log('🔐 useAuth: Auth state changed', {
           event,
           hasUser: !!session?.user,
           userId: session?.user?.id,
-          metadataKeys: Object.keys(session?.user?.user_metadata || {})
         });
         setSession(session);
         setUser(session?.user ?? null);
-        if (event === 'SIGNED_OUT') {
-          setLoading(false);
-        } else if (event === 'SIGNED_IN' && session?.user) {
-          // Don't auto-enrich on auth state change to avoid conflicts
-          setLoading(false);
-        }
+        setLoading(false);
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('[AUTH] Initial getSession', {
-        hasSession: !!session,
-        userId: session?.user?.id,
-        metadataKeys: Object.keys(session?.user?.user_metadata || {})
-      });
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('❌ useAuth: Error getting session:', error);
+      } else {
+        console.log('🔐 useAuth: Initial session check', {
+          hasSession: !!session,
+          userId: session?.user?.id,
+        });
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+    }).catch(err => {
+      console.error('❌ useAuth: Session check failed:', err);
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('🔐 useAuth: Cleaning up subscription');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, displayName?: string) => {
@@ -159,7 +166,6 @@ export const useAuth = () => {
   };
 
   const signInAsGuest = async (displayName?: string) => {
-    // Random animal names for anonymous users
     const anonymousNames = [
       'Disguised Duck',
       'Private Platypus', 
@@ -238,52 +244,10 @@ export const useAuth = () => {
     }
   };
 
-  const linkLinkedInAccount = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in first to link your LinkedIn account.",
-        variant: "destructive"
-      });
-      return { error: new Error('No authenticated user') };
-    }
-
-    try {
-      const { error } = await supabase.auth.linkIdentity({
-        provider: 'linkedin_oidc'
-      });
-
-      if (error) {
-        console.error('LinkedIn linking error:', error);
-        toast({
-          title: "LinkedIn linking failed",
-          description: error.message,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "LinkedIn linked!",
-          description: "Your LinkedIn account has been linked successfully."
-        });
-      }
-
-      return { error };
-    } catch (err) {
-      console.error('LinkedIn linking exception:', err);
-      toast({
-        title: "LinkedIn linking failed",
-        description: "Please try again.",
-        variant: "destructive"
-      });
-      return { error: err as Error };
-    }
-  };
-
   const enrichProfileFromAuth = async (user: User, profileData: ProfileData) => {
-    console.debug('[AUTH] Starting enrichProfileFromAuth', { userId: user.id, profileData });
+    console.log('🔐 useAuth: Enriching profile from auth data');
     
     try {
-      // Update the profiles table with additional data
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
@@ -298,53 +262,13 @@ export const useAuth = () => {
         });
 
       if (profileError) {
-        console.error('[AUTH] Profile upsert error:', profileError);
+        console.error('Profile upsert error:', profileError);
         throw profileError;
       }
 
-      console.debug('[AUTH] Profile upserted successfully');
-
-      // Update user metadata to mirror profile data
-      const userMetadata = {
-        name: profileData.name,
-        title: profileData.title,
-        avatar_url: profileData.avatarUrl,
-        linkedin_profile_url: profileData.linkedinUrl,
-        linkedin_id: profileData.linkedinId,
-        email: profileData.email
-      };
-
-      console.debug('[AUTH] Updating auth user metadata', { userMetadata });
-      const { error: metadataError } = await supabase.auth.updateUser({
-        data: userMetadata
-      });
-
-      if (metadataError) {
-        console.error('[AUTH] User metadata update error:', metadataError);
-        throw metadataError;
-      }
-
-      console.debug('[AUTH] User metadata updated successfully');
-
-      // Store user email if provided
-      if (profileData.email) {
-        console.debug('[AUTH] Upserting user email', { email: profileData.email });
-        const { error: emailError } = await supabase.rpc('upsert_user_email', {
-          email: profileData.email,
-          source: profileData.linkedinId ? 'linkedin' : 'manual'
-        });
-
-        if (emailError) {
-          console.error('[AUTH] User email upsert error:', emailError);
-          // Don't throw here - email storage is not critical
-        } else {
-          console.debug('[AUTH] User email upserted successfully');
-        }
-      }
-
-      console.debug('[AUTH] enrichProfileFromAuth completed successfully');
+      console.log('✅ useAuth: Profile enriched successfully');
     } catch (error) {
-      console.error('[AUTH] enrichProfileFromAuth error:', error);
+      console.error('❌ useAuth: Profile enrichment failed:', error);
       throw error;
     }
   };
@@ -372,7 +296,6 @@ export const useAuth = () => {
     signInWithLinkedIn,
     signInAsGuest,
     signInWithMagicLink,
-    linkLinkedInAccount,
     enrichProfileFromAuth,
     signOut
   };
