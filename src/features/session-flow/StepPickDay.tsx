@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, ArrowRight, Calendar } from 'lucide-react';
 import { useSessionFlowStore } from './store';
 import { getSixOptions, formatDateForDisplay } from './helpers/date';
+import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export const StepPickDay = () => {
   const navigate = useNavigate();

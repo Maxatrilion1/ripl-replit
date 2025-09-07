@@ -8,7 +8,7 @@ import { Check, ChevronsUpDown, Coffee, ArrowRight, ArrowLeft } from 'lucide-rea
 import { cn } from '@/lib/utils';
 import { useSessionFlowStore } from './store';
 
-// Sample cafes - in a real app, this could come from a venues table
+// Sample cafes - in production this would come from Google Places API
 const SAMPLE_CAFES = [
   'Blue Bottle Coffee',
   'Starbucks',
@@ -36,6 +36,7 @@ export const StepChooseCafe = () => {
   const handleBack = () => {
     navigate('/create-session');
   };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">

@@ -113,7 +113,7 @@ const NavigationMenuIndicator = React.forwardRef<
   </NavigationMenuPrimitive.Indicator>
 ))
 NavigationMenuIndicator.displayName =
-  NavigationMenuPrimitive.Indicator.displayName
+NavigationMenuEllipsis.displayName = "NavigationMenuEllipsis"
 
 export {
   navigationMenuTriggerStyle,

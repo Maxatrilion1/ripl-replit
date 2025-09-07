@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { MapPin, Clock, Users, Coffee, Calendar, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import { Copy } from 'lucide-react';
 
 interface SessionPreview {
   session_id: string;
