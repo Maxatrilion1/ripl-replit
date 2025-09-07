@@ -33,8 +33,8 @@ const App = () => (
           <Route path="/auth/linkedin-confirm" element={<Auth />} />
           <Route path="/invite/:code" element={<Invite />} />
           <Route path="/preview/:slug" element={<SessionPreview />} />
+          <Route path="/" element={<Index />} />
           <Route element={<Layout />}>
-            <Route path="/" element={<Index />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/create-session" element={<CreateSession />} />
             <Route path="/create-session/cafe" element={<StepChooseCafe />} />

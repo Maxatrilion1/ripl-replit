@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Coffee, MapPin, Users, Clock, Plus } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import { Layout } from '@/components/Layout';
 
 interface CoworkSession {
   id: string;
@@ -41,7 +42,8 @@ const Index = () => {
   useEffect(() => {
     if (!loading && !user) {
       console.log('🔄 Auth: Redirecting to login - no authenticated user');
-      navigate('/auth');
+      // Don't auto-redirect on index page, let users see the landing
+      // navigate('/auth');
     }
   }, [user, loading, navigate]);
 
@@ -162,6 +164,7 @@ const Index = () => {
   }
 
   return (
+    <Layout>
     <div className="container mx-auto px-4 py-8">
       {/* Hero Section */}
       <div className="text-center mb-12">
@@ -287,6 +290,7 @@ const Index = () => {
         )}
       </div>
     </div>
+    </Layout>
   );
 };
 
