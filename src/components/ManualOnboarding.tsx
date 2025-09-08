@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CheckCircle, User, Briefcase, Mail, Camera, Upload, ArrowLeft, ArrowRight } from "lucide-react";
+import { User, Briefcase, Camera, Upload, ArrowLeft, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalytics, ANALYTICS_EVENTS } from "@/hooks/useAnalytics";
@@ -15,7 +15,6 @@ import { ProfilePreviewCard } from "./ProfilePreviewCard";
 interface OnboardingData {
   name: string;
   title: string;
-  email: string;
   avatarUrl: string;
   step: number;
 }
@@ -24,7 +23,7 @@ interface ManualOnboardingProps {
   onComplete?: () => void;
 }
 
-// Step definitions - reordered: Name, Title, Photo, Email
+// Step definitions - Name, Title, Photo
 const STEPS = [
   {
     id: 'name',
@@ -43,45 +42,48 @@ const STEPS = [
     name: 'Photo',
     icon: Camera,
     description: 'Add your profile photo'
-  },
-  {
-    id: 'email',
-    name: 'Email',
-    icon: Mail,
-    description: 'Save your profile'
   }
 ];
 
 const STORAGE_KEY = 'ripl_onboarding_progress';
 
 const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
-  const { user, signInWithMagicLink, enrichProfileFromAuth } = useAuth();
+  const { user, enrichProfileFromAuth } = useAuth();
   const { track } = useAnalytics();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [data, setData] = useState<OnboardingData>({
-    name: '',
-    title: '',
-    email: '',
-    avatarUrl: '',
+    name: user?.user_metadata?.name || user?.user_metadata?.full_name || '',
+    title: user?.user_metadata?.headline || '',
+    avatarUrl: user?.user_metadata?.picture || '',
     step: 0
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Initialize data from user metadata if available
+  useEffect(() => {
+    if (user) {
+      setData(prev => ({
+        ...prev,
+        name: user.user_metadata?.name || user.user_metadata?.full_name || prev.name,
+        title: user.user_metadata?.headline || prev.title,
+        avatarUrl: user.user_metadata?.picture || prev.avatarUrl,
+      }));
+    }
+  }, [user]);
+
   // Load saved progress from localStorage
   useEffect(() => {
     const savedProgress = localStorage.getItem(STORAGE_KEY);
-    console.debug('[ONBOARDING] Load saved progress', { hasSaved: !!savedProgress, savedRaw: savedProgress });
     if (savedProgress) {
       try {
         const parsed = JSON.parse(savedProgress);
-        setData(parsed);
+        setData(prev => ({ ...prev, ...parsed }));
         setStep(parsed.step || 0);
-        console.debug('[ONBOARDING] Loaded progress', { parsed });
       } catch (error) {
         console.error('Failed to parse saved onboarding progress:', error);
       }
@@ -92,87 +94,7 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
   useEffect(() => {
     const dataToSave = { ...data, step };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-    console.debug('[ONBOARDING] Saved progress', { dataToSave });
   }, [data, step]);
-
-  // Handle magic link return and complete onboarding
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const verify = urlParams.get('verify');
-    const emailParam = urlParams.get('email');
-    
-    if (verify === 'true' && user && emailParam) {
-      console.debug('[ONBOARDING] Verification detected', {
-        userId: user.id,
-        email: emailParam,
-        saved: localStorage.getItem(`ripl_onboarding_${emailParam}`)
-      });
-      
-      // Load saved onboarding data from localStorage
-      const savedData = localStorage.getItem(`ripl_onboarding_${emailParam}`);
-      if (savedData) {
-        try {
-          const parsedData = JSON.parse(savedData);
-          console.debug('[ONBOARDING] Loaded saved data after magic link', { parsedData });
-          setData(parsedData);
-          // Clean up the specific email storage key
-          localStorage.removeItem(`ripl_onboarding_${emailParam}`);
-        } catch (error) {
-          console.error('Failed to parse saved onboarding data:', error);
-        }
-      }
-      
-      handleEmailVerified();
-    }
-  }, [user]);
-
-  const handleEmailVerified = async () => {
-    if (!user) return;
-    
-    try {
-      console.debug('[ONBOARDING] Upserting user email after verification', {
-        userId: user.id,
-        email: data.email
-      });
-      // Call upsert_user_email to mark as verified
-      const { error } = await supabase.rpc('upsert_user_email', {
-        email: data.email,
-        source: 'manual'
-      });
-
-      if (error) {
-        console.error('Error upserting user email:', error);
-        toast({
-          title: "Email verification error",
-          description: "Failed to verify email. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.debug('[ONBOARDING] Email verified RPC success');
-      toast({
-        title: "Email verified!",
-        description: "Your email has been verified successfully."
-      });
-
-      // Don't call handleComplete automatically - wait for user to have their data loaded
-      // The useEffect above will have loaded the data from localStorage
-      console.debug('[ONBOARDING] Email verified, data should be loaded:', { data });
-      
-      // Give a moment for the data to be set, then complete
-      setTimeout(() => {
-        handleComplete();
-      }, 500);
-    } catch (error) {
-      console.error('Error in handleEmailVerified:', error);
-      toast({
-        title: "Verification error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
 
   const validateStep = (stepId: string): { isValid: boolean; error?: string } => {
     switch (stepId) {
@@ -182,21 +104,10 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
         }
         return { isValid: true };
       case 'title':
-        if (!data.title.trim()) {
-          return { isValid: false, error: 'Title is required' };
-        }
+        // Title is optional for manual onboarding
         return { isValid: true };
       case 'photo':
-        // Photo is optional
-        return { isValid: true };
-      case 'email':
-        if (!data.email.trim()) {
-          return { isValid: false, error: 'Email is required' };
-        }
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(data.email)) {
-          return { isValid: false, error: 'Please enter a valid email address' };
-        }
+        // Photo is optional for manual onboarding
         return { isValid: true };
       default:
         return { isValid: true };
@@ -206,58 +117,9 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
   const handleNext = async () => {
     const currentStep = STEPS[step];
     
-    if (currentStep.id === 'email') {
-      // Email step - always allow clicking the button
-      const validation = validateStep(currentStep.id);
-      
-      if (!validation.isValid) {
-        setErrors({ ...errors, [currentStep.id]: validation.error || '' });
-        return;
-      }
-
-      // Clear any existing errors
-      setErrors({ ...errors, [currentStep.id]: '' });
-
-      // Save onboarding data to localStorage before sending magic link
-      const onboardingData = {
-        name: data.name,
-        title: data.title,
-        avatarUrl: data.avatarUrl,
-        email: data.email
-      };
-      localStorage.setItem(`ripl_onboarding_${data.email}`, JSON.stringify(onboardingData));
-      console.debug('[ONBOARDING] Saved data to localStorage before magic link', { onboardingData });
-
-      // Send magic link for email verification
-      setLoading(true);
-      try {
-        const redirectUrl = `${window.location.origin}/auth/onboarding?verify=true&email=${encodeURIComponent(data.email)}`;
-        console.debug('[ONBOARDING] Sending magic link', { email: data.email, redirectUrl });
-        const { error } = await signInWithMagicLink(data.email, redirectUrl);
-
-        if (error) throw error;
-
-        track(ANALYTICS_EVENTS.MAGIC_LINK_SENT, {
-          email: data.email
-        });
-
-        setEmailSent(true);
-
-        toast({
-          title: "Check your email",
-          description: "We've sent you a verification link to complete your profile setup."
-        });
-
-      } catch (error) {
-        console.error('Error sending magic link:', error);
-        toast({
-          title: "Error sending email",
-          description: "Please try again or contact support.",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
+    if (step === STEPS.length - 1) {
+      // Last step - complete onboarding
+      await handleComplete();
     } else {
       // Regular step validation
       const validation = validateStep(currentStep.id);
@@ -276,32 +138,30 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
         step_name: currentStep.name
       });
 
-      if (step < STEPS.length - 1) {
-        setStep(step + 1);
-      }
+      setStep(step + 1);
     }
   };
 
   const handleBack = () => {
     if (step > 0) {
       setStep(step - 1);
+    } else {
+      navigate('/auth');
     }
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
-    // For onboarding, we need to create a temporary anonymous upload since user isn't authenticated yet
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `temp/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-      console.debug('[ONBOARDING] Uploading temp avatar', { fileName });
+      const fileName = `${user.id}/avatar.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file);
+        .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
@@ -327,7 +187,7 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
     if (!user) {
       toast({
         title: "Authentication required",
-        description: "Please complete email verification first.",
+        description: "Please sign in first.",
         variant: "destructive"
       });
       return;
@@ -335,45 +195,13 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
 
     setLoading(true);
     try {
-      console.debug('[ONBOARDING] handleComplete start', { userId: user.id, data });
-      let finalAvatarUrl = data.avatarUrl;
+      console.log('🔐 ManualOnboarding: Completing profile setup', { data });
       
-      // If we have a temp avatar, copy it to the user's permanent location
-      if (data.avatarUrl && data.avatarUrl.includes('temp/')) {
-        try {
-          const tempPath = data.avatarUrl.split('/avatars/')[1];
-          const fileExt = tempPath.split('.').pop();
-          const newPath = `${user.id}/avatar.${fileExt}`;
-          console.debug('[ONBOARDING] Copying avatar from temp', { tempPath, newPath });
-          
-          // Copy from temp to user folder
-          const { error: copyError } = await supabase.storage
-            .from('avatars')
-            .copy(tempPath, newPath);
-            
-          if (!copyError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from('avatars')
-              .getPublicUrl(newPath);
-            finalAvatarUrl = publicUrl;
-            
-            // Clean up temp file
-            await supabase.storage.from('avatars').remove([tempPath]);
-          }
-        } catch (copyError) {
-          console.error('Error copying temp avatar:', copyError);
-          // Continue with temp URL if copy fails
-        }
-      }
-
-      console.debug('[ONBOARDING] Calling enrichProfileFromAuth', {
-        payload: { name: data.name, title: data.title, avatarUrl: finalAvatarUrl, email: data.email }
-      });
       await enrichProfileFromAuth(user, {
         name: data.name,
         title: data.title,
-        avatarUrl: finalAvatarUrl,
-        email: data.email
+        avatarUrl: data.avatarUrl,
+        email: user.email
       });
 
       // Clear saved progress
@@ -391,17 +219,17 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
         description: "Your profile has been set up successfully."
       });
 
-      // Call completion handler if provided, otherwise navigate
+      // Call completion handler
       if (onComplete) {
         onComplete();
       } else {
-        const urlParams = new URLSearchParams(window.location.search);
-        const redirect = urlParams.get('redirect');
-        navigate(redirect || '/');
+        const inviteCode = searchParams.get('invite');
+        const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
+        navigate(redirectPath);
       }
 
     } catch (error: any) {
-      console.error('Profile update error:', error);
+      console.error('Profile setup error:', error);
       toast({
         title: "Setup failed",
         description: error.message || "Failed to complete setup. Please try again.",
@@ -419,13 +247,26 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md mx-auto space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl font-bold">Complete Your Profile</h1>
+            <p className="text-muted-foreground">
+              Fill out your profile to get started with Ripl
+            </p>
+          </div>
+
           {/* Compact Profile Preview */}
-          <ProfilePreviewCard
-            name={data.name}
-            title={data.title}
-            avatarUrl={data.avatarUrl}
-            linkedinUrl={data.email ? `mailto:${data.email}` : undefined}
-          />
+          <div className="text-center mb-4">
+            <h2 className="text-lg font-semibold mb-2">Your Profile Card</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              This is how others will see you in sessions
+            </p>
+            <ProfilePreviewCard
+              name={data.name || "Your Name"}
+              title={data.title || "Your Title"}
+              avatarUrl={data.avatarUrl}
+            />
+          </div>
 
           {/* Form Card */}
           <Card className="shadow-xl border-0 bg-card/50 backdrop-blur-sm">
@@ -469,7 +310,7 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="title" className="text-sm font-medium">
-                      Title or Role *
+                      Title or Role (Optional)
                     </Label>
                     <Input
                       id="title"
@@ -477,10 +318,16 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
                       onChange={(e) => setData({ ...data, title: e.target.value })}
                       placeholder="e.g., Software Engineer, Designer, Student"
                       className="mt-1"
+                      maxLength={30}
                     />
-                    {errors.title && (
-                      <p className="text-sm text-destructive mt-1">{errors.title}</p>
-                    )}
+                    <div className="flex justify-between items-center mt-1">
+                      {errors.title && (
+                        <p className="text-sm text-destructive">{errors.title}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground ml-auto">
+                        {data.title.length}/30 characters
+                      </p>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Help others understand what you do.
@@ -535,53 +382,24 @@ const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
                 </div>
               )}
 
-              {currentStepData.id === 'email' && (
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="email" className="text-sm font-medium">
-                      Email Address *
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={data.email}
-                      onChange={(e) => setData({ ...data, email: e.target.value })}
-                      placeholder="your.email@example.com"
-                      className="mt-1"
-                    />
-                    {errors.email && (
-                      <p className="text-sm text-destructive mt-1">{errors.email}</p>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    We'll send you a verification link to complete your profile.
-                  </p>
-                </div>
-              )}
-
               {/* Navigation */}
               <div className="flex gap-3 pt-6">
-                {step > 0 && (
-                  <Button
-                    variant="outline"
-                    onClick={handleBack}
-                    disabled={loading}
-                    className="flex-1"
-                  >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={loading}
+                  className="flex-1"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
                 <Button
                   onClick={handleNext}
-                  disabled={currentStepData.id === 'email' && emailSent}
+                  disabled={loading}
                   className="flex-1"
-                  variant={currentStepData.id === 'email' && emailSent ? "secondary" : "default"}
                 >
                   {loading ? (
                     'Processing...'
-                  ) : currentStepData.id === 'email' ? (
-                    emailSent ? 'Check your inbox' : 'Validate your email'
                   ) : step === STEPS.length - 1 ? (
                     'Complete Setup'
                   ) : (

@@ -7,7 +7,7 @@ interface ProfileData {
   name?: string;
   title?: string;
   avatarUrl?: string;
-  linkedinUrl?: string;
+  linkedinUrl?: string | null;
   linkedinId?: string;
   email?: string;
 }
@@ -131,7 +131,7 @@ export const useAuth = () => {
 
   const signInWithLinkedIn = async (redirectTo?: string) => {
     try {
-      const finalRedirectTo = redirectTo || `${window.location.origin}/profile?setup=true`;
+      const finalRedirectTo = redirectTo || `${window.location.origin}/auth?verify=true&method=linkedin`;
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
@@ -213,7 +213,7 @@ export const useAuth = () => {
   };
 
   const signInWithMagicLink = async (email: string, redirectTo?: string) => {
-    const finalRedirectTo = redirectTo || `${window.location.origin}/`;
+    const finalRedirectTo = redirectTo || `${window.location.origin}/auth?verify=true`;
     
     try {
       const { error } = await supabase.auth.signInWithOtp({
@@ -248,16 +248,6 @@ export const useAuth = () => {
     console.log('🔐 useAuth: Enriching profile from auth data');
     
     try {
-      // Auto-populate LinkedIn profile URL if user signed in with LinkedIn
-      let linkedinUrl = profileData.linkedinUrl;
-      if (!linkedinUrl && user.app_metadata?.provider === 'linkedin_oidc') {
-        // Try to construct LinkedIn URL from user metadata
-        const linkedinId = user.user_metadata?.sub;
-        if (linkedinId) {
-          linkedinUrl = `https://linkedin.com/in/${linkedinId}`;
-        }
-      }
-      
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
@@ -265,7 +255,7 @@ export const useAuth = () => {
           name: profileData.name || user.email || 'User',
           title: profileData.title,
           avatar_url: profileData.avatarUrl,
-          linkedin_profile_url: linkedinUrl,
+          linkedin_profile_url: profileData.linkedinUrl,
           linkedin_id: profileData.linkedinId
         }, {
           onConflict: 'user_id'

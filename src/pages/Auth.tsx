@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
 import ManualOnboarding from '@/components/ManualOnboarding';
 import LinkedInConfirmation from '@/components/LinkedInConfirmation';
@@ -16,66 +15,25 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [error, setError] = useState('');
-  const { user, session, signInWithMagicLink, signInWithLinkedIn } = useAuth();
+  const { user, loading: authLoading, signInWithMagicLink, signInWithLinkedIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  // Check what flow to show
+  // Parse URL parameters
   const isVerifyFlow = searchParams.get('verify') === 'true';
-  const isLinkedInFlow = searchParams.get('method') === 'linkedin';
-  const showOnboarding = searchParams.get('method') === 'email' || window.location.pathname === '/auth/onboarding' || (isVerifyFlow && !isLinkedInFlow);
-  const showLinkedInConfirm = window.location.pathname === '/auth/linkedin-confirm';
+  const isLinkedInMethod = searchParams.get('method') === 'linkedin';
+  const emailParam = searchParams.get('email');
+  const inviteCode = searchParams.get('invite');
   
-  // Check if we're coming from a shared session link
-  const inviteCode = searchParams.get('invite') || searchParams.get('code');
-  const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
-  
-  // Extract LinkedIn data from URL params or user metadata
-  const getLinkedInData = () => {
-    if (user?.user_metadata) {
-      return {
-        name: user.user_metadata.full_name || user.user_metadata.name,
-        headline: user.user_metadata.headline,
-        picture: user.user_metadata.avatar_url || user.user_metadata.picture,
-        email: user.email,
-        profileUrl: user.user_metadata.linkedin_url
-      };
-    }
-    return {};
-  };
-
-  useEffect(() => {
-    // If user is authenticated and not in a special flow, redirect to main app
-    if (user && !showOnboarding && !showLinkedInConfirm && !isVerifyFlow) {
-      navigate(redirectPath);
-    }
-  }, [user, navigate, showOnboarding, showLinkedInConfirm, redirectPath]);
-
-  // Handle magic link verification flow
-  useEffect(() => {
-    if (isVerifyFlow && user && !isLinkedInFlow) {
-      // User clicked magic link and is now authenticated
-      // For magic link users, always show profile setup
-      return;
-    }
-    
-    if (isVerifyFlow && user && isLinkedInFlow) {
-      // LinkedIn OAuth flow - redirect to profile setup
-      const inviteCode = searchParams.get('invite');
-      const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
-      navigate(`/profile?setup=true${inviteCode ? `&invite=${inviteCode}` : ''}`);
-    }
-  }, [isVerifyFlow, user, navigate, isLinkedInFlow, searchParams]);
-
-  // Handle profile setup completion redirect
-  const handleProfileSetupComplete = () => {
-    const inviteCode = searchParams.get('invite');
-    if (inviteCode) {
-      navigate(`/invite/${inviteCode}`);
-    } else {
-      navigate('/');
-    }
-  };
+  console.log('🔐 Auth: Component state', {
+    user: !!user,
+    authLoading,
+    isVerifyFlow,
+    isLinkedInMethod,
+    emailParam,
+    inviteCode,
+    pathname: window.location.pathname
+  });
 
   // Cooldown timer effect
   useEffect(() => {
@@ -88,6 +46,61 @@ const Auth = () => {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
+  // Handle redirects for authenticated users NOT in setup flows
+  useEffect(() => {
+    if (!authLoading && user && !isVerifyFlow) {
+      console.log('🔐 Auth: User authenticated, redirecting to main app');
+      const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
+      navigate(redirectPath);
+    }
+  }, [user, authLoading, isVerifyFlow, navigate, inviteCode]);
+
+  // Show loading while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Handle verification flows for authenticated users
+  if (isVerifyFlow && user) {
+    console.log('🔐 Auth: Verification flow detected for authenticated user');
+    
+    if (isLinkedInMethod) {
+      // LinkedIn verification flow
+      const linkedInData = {
+        name: user.user_metadata?.name || user.user_metadata?.full_name,
+        headline: user.user_metadata?.headline,
+        picture: user.user_metadata?.picture,
+        email: user.email,
+        profileUrl: user.user_metadata?.linkedin_url
+      };
+      
+      return (
+        <LinkedInConfirmation 
+          linkedInData={linkedInData}
+          onComplete={() => {
+            const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
+            navigate(redirectPath);
+          }}
+        />
+      );
+    } else {
+      // Magic link verification flow
+      return (
+        <ManualOnboarding 
+          onComplete={() => {
+            const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
+            navigate(redirectPath);
+          }}
+        />
+      );
+    }
+  }
+
+  // Show regular auth form for non-authenticated users
   const handleMagicLinkSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -98,12 +111,15 @@ const Auth = () => {
     setLoading(true);
     setError('');
     try {
-      // Check if user is coming from an invite link
-      const inviteCode = searchParams.get('invite') || searchParams.get('code');
-      const redirectParam = inviteCode ? `&invite=${inviteCode}` : '';
+      // Build redirect URL for magic link
+      const redirectParams = new URLSearchParams();
+      redirectParams.set('verify', 'true');
+      if (inviteCode) redirectParams.set('invite', inviteCode);
+      if (emailParam) redirectParams.set('email', emailParam);
       
-      // Redirect to auth page with verification flow for magic link users
-      const finalRedirectTo = `${window.location.origin}/auth?verify=true&email=${encodeURIComponent(email)}${redirectParam}`;
+      const finalRedirectTo = `${window.location.origin}/auth?${redirectParams.toString()}`;
+      
+      console.log('🔐 Auth: Sending magic link with redirect:', finalRedirectTo);
       
       const result = await signInWithMagicLink(email, finalRedirectTo);
       if (!result.error) {
@@ -125,35 +141,26 @@ const Auth = () => {
   };
 
   const handleLinkedInSignIn = async () => {
-    // Check if user is coming from an invite link
-    const inviteCode = searchParams.get('invite') || searchParams.get('code');
-    const redirectParam = inviteCode ? `?invite=${inviteCode}` : '';
+    console.log('🔐 Auth: Starting LinkedIn sign-in');
     
-    // Redirect to auth page with verification flow for LinkedIn users  
-    const redirectTo = `${window.location.origin}/auth?verify=true&method=linkedin${redirectParam}`;
+    // Build redirect URL for LinkedIn
+    const redirectParams = new URLSearchParams();
+    redirectParams.set('verify', 'true');
+    redirectParams.set('method', 'linkedin');
+    if (inviteCode) redirectParams.set('invite', inviteCode);
+    
+    const redirectTo = `${window.location.origin}/auth?${redirectParams.toString()}`;
+    
+    console.log('🔐 Auth: LinkedIn redirect URL:', redirectTo);
     
     const result = await signInWithLinkedIn(redirectTo);
+    if (result.error) {
+      setError(result.error.message || 'LinkedIn sign-in failed. Please try again.');
+    }
   };
-
-  // Show LinkedIn confirmation if coming from LinkedIn OAuth
-  if (showLinkedInConfirm) {
-    const linkedInData = getLinkedInData();
-    return (
-      <LinkedInConfirmation 
-        linkedInData={linkedInData}
-        onComplete={() => navigate(redirectPath)}
-      />
-    );
-  }
-
-  // Show onboarding if requested
-  if (showOnboarding) {
-    return <ManualOnboarding />;
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4 relative">
-
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
