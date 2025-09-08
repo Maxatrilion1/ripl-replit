@@ -88,8 +88,12 @@ const Auth = () => {
     setLoading(true);
     setError('');
     try {
-      // Always redirect to onboarding flow for magic link users
-      const finalRedirectTo = `${window.location.origin}/auth/onboarding?verify=true&email=${encodeURIComponent(email)}`;
+      // Check if user is coming from an invite link
+      const inviteCode = searchParams.get('invite') || searchParams.get('code');
+      const redirectParam = inviteCode ? `&invite=${inviteCode}` : '';
+      
+      // Redirect to profile completion flow for magic link users
+      const finalRedirectTo = `${window.location.origin}/profile?setup=true&email=${encodeURIComponent(email)}${redirectParam}`;
       
       const result = await signInWithMagicLink(email, finalRedirectTo);
       if (!result.error) {
@@ -111,9 +115,12 @@ const Auth = () => {
   };
 
   const handleLinkedInSignIn = async () => {
-    const redirectTo = inviteCode 
-      ? `${window.location.origin}/invite/${inviteCode}`
-      : `${window.location.origin}/`;
+    // Check if user is coming from an invite link
+    const inviteCode = searchParams.get('invite') || searchParams.get('code');
+    const redirectParam = inviteCode ? `?invite=${inviteCode}` : '';
+    
+    // Redirect to profile completion flow for LinkedIn users
+    const redirectTo = `${window.location.origin}/profile?setup=true${redirectParam}`;
     
     const result = await signInWithLinkedIn(redirectTo);
   };

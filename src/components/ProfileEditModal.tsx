@@ -21,17 +21,20 @@ interface ProfileEditModalProps {
     linkedin_profile_url?: string;
   };
   onProfileUpdate: (profile: any) => void;
+  isSetupFlow?: boolean;
 }
 
 export const ProfileEditModal = ({
   open,
   onOpenChange,
   profile,
-  onProfileUpdate
+  onProfileUpdate,
+  isSetupFlow = false
 }: ProfileEditModalProps) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
     name: profile.name || "",
@@ -47,7 +50,38 @@ export const ProfileEditModal = ({
       linkedinUrl: profile.linkedin_profile_url || "",
       avatarUrl: profile.avatar_url || ""
     });
+    setErrors({});
   }, [profile]);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    // Name is required
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    
+    // Profile photo is required in setup flow
+    if (isSetupFlow && !formData.avatarUrl) {
+      newErrors.avatarUrl = 'Profile photo is required';
+    }
+    
+    // Title max 30 characters
+    if (formData.title.length > 30) {
+      newErrors.title = 'Title must be 30 characters or less';
+    }
+    
+    // LinkedIn URL validation (if provided)
+    if (formData.linkedinUrl.trim()) {
+      const linkedinPattern = /^https:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+\/?$/;
+      if (!linkedinPattern.test(formData.linkedinUrl.trim())) {
+        newErrors.linkedinUrl = 'Please enter a valid LinkedIn profile URL';
+      }
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,6 +103,7 @@ export const ProfileEditModal = ({
         .getPublicUrl(fileName);
 
       setFormData(prev => ({ ...prev, avatarUrl: publicUrl }));
+      setErrors(prev => ({ ...prev, avatarUrl: '' }));
       toast({ title: "Photo uploaded successfully!" });
     } catch (error) {
       console.error('Error uploading photo:', error);
@@ -85,6 +120,15 @@ export const ProfileEditModal = ({
   const handleSave = async () => {
     if (!user) return;
 
+    // Validate form
+    if (!validateForm()) {
+      toast({
+        title: "Please fix the errors",
+        description: "Complete all required fields before saving.",
+        variant: "destructive"
+      });
+      return;
+    }
     setLoading(true);
     try {
       const { error } = await supabase
@@ -108,8 +152,16 @@ export const ProfileEditModal = ({
       };
 
       onProfileUpdate(updatedProfile);
-      toast({ title: "Profile updated successfully!" });
-      onOpenChange(false);
+      
+      if (isSetupFlow) {
+        toast({ 
+          title: "Profile completed!", 
+          description: "Welcome to Ripl! Your profile is now set up." 
+        });
+      } else {
+        toast({ title: "Profile updated successfully!" });
+        onOpenChange(false);
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -126,7 +178,14 @@ export const ProfileEditModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Profile</DialogTitle>
+          <DialogTitle>
+            {isSetupFlow ? 'Complete Your Profile' : 'Edit Profile'}
+          </DialogTitle>
+          {isSetupFlow && (
+            <p className="text-sm text-muted-foreground">
+              Fill out the required fields to finish setting up your account
+            </p>
+          )}
         </DialogHeader>
 
         <div className="space-y-6">
@@ -149,8 +208,9 @@ export const ProfileEditModal = ({
           <div className="space-y-4">
             {/* Photo Upload */}
             <div>
-              <Label htmlFor="photo" className="text-sm font-medium mb-2 block">
+              <Label htmlFor="photo" className="text-sm font-medium mb-2 block flex items-center gap-1">
                 Profile Photo
+                {isSetupFlow && <Star className="w-3 h-3 text-red-500" />}
               </Label>
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
@@ -177,34 +237,52 @@ export const ProfileEditModal = ({
                     <Upload className="h-4 w-4 mr-2" />
                     {photoUploading ? "Uploading..." : "Upload Photo"}
                   </Button>
+                  {errors.avatarUrl && (
+                    <p className="text-sm text-red-500 mt-1">{errors.avatarUrl}</p>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Name */}
             <div>
-              <Label htmlFor="name" className="text-sm font-medium mb-2 block">
+              <Label htmlFor="name" className="text-sm font-medium mb-2 block flex items-center gap-1">
                 Name
+                <Star className="w-3 h-3 text-red-500" />
               </Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter your name"
+                className={errors.name ? "border-red-500" : ""}
               />
+              {errors.name && (
+                <p className="text-sm text-red-500 mt-1">{errors.name}</p>
+              )}
             </div>
 
             {/* Title */}
             <div>
               <Label htmlFor="title" className="text-sm font-medium mb-2 block">
-                Title
+                Title (Optional)
               </Label>
               <Input
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="Enter your title or role"
+                maxLength={30}
+                className={errors.title ? "border-red-500" : ""}
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.title && (
+                  <p className="text-sm text-red-500">{errors.title}</p>
+                )}
+                <p className="text-xs text-muted-foreground ml-auto">
+                  {formData.title.length}/30 characters
+                </p>
+              </div>
             </div>
 
             {/* LinkedIn */}
@@ -217,25 +295,31 @@ export const ProfileEditModal = ({
                 value={formData.linkedinUrl}
                 onChange={(e) => setFormData(prev => ({ ...prev, linkedinUrl: e.target.value }))}
                 placeholder="https://linkedin.com/in/your-profile"
+                className={errors.linkedinUrl ? "border-red-500" : ""}
               />
+              {errors.linkedinUrl && (
+                <p className="text-sm text-red-500 mt-1">{errors.linkedinUrl}</p>
+              )}
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex gap-2 pt-4">
-            <Button
+            {!isSetupFlow && (
+              <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="flex-1"
             >
               Cancel
             </Button>
+            )}
             <Button
               onClick={handleSave}
               disabled={loading}
-              className="flex-1"
+              className={isSetupFlow ? "w-full" : "flex-1"}
             >
-              {loading ? "Saving..." : "Save Changes"}
+              {loading ? "Saving..." : isSetupFlow ? "Complete Profile" : "Save Changes"}
             </Button>
           </div>
         </div>

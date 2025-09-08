@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Calendar, Users, MapPin, Edit } from 'lucide-react';
+import { Calendar, Users, MapPin, Edit, Star } from 'lucide-react';
 import AnonymousUpgradePrompt from '@/components/AnonymousUpgradePrompt';
 import { ProfilePreviewCard } from '@/components/ProfilePreviewCard';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
@@ -23,12 +24,18 @@ interface UserProfile {
 
 const Profile = () => {
   const { user, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminEmail, setAdminEmail] = useState('');
   const [addingAdmin, setAddingAdmin] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  
+  // Check if this is a setup flow (from signup)
+  const isSetupFlow = searchParams.get('setup') === 'true';
+  const inviteCode = searchParams.get('invite');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -98,10 +105,20 @@ const Profile = () => {
             title: "Profile created",
             description: "Your profile has been created successfully."
           });
+          
+          // If this is setup flow, open edit modal automatically
+          if (isSetupFlow) {
+            setEditModalOpen(true);
+          }
           return;
         }
 
         setProfile(profileData);
+        
+        // If this is setup flow, open edit modal automatically
+        if (isSetupFlow) {
+          setEditModalOpen(true);
+        }
 
         // Check if user is admin
         const { data: adminData } = await supabase.rpc('is_admin', { uid: user.id });
@@ -120,7 +137,7 @@ const Profile = () => {
     };
 
     fetchProfile();
-  }, [user, authLoading]);
+  }, [user, authLoading, isSetupFlow]);
 
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,6 +187,20 @@ const Profile = () => {
     }
   };
 
+  // Handle profile completion and redirect
+  const handleProfileComplete = (updatedProfile: UserProfile) => {
+    setProfile(updatedProfile);
+    setEditModalOpen(false);
+    
+    // If user came from an invite link, redirect to that session
+    if (inviteCode) {
+      navigate(`/invite/${inviteCode}`);
+    } else {
+      // Otherwise go to home
+      navigate('/');
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="container mx-auto py-8 px-4 max-w-2xl">
@@ -183,6 +214,16 @@ const Profile = () => {
   return (
     <div className="container mx-auto py-8 px-4 max-w-2xl">
       <div className="space-y-6">
+        {/* Setup flow header */}
+        {isSetupFlow && (
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl font-bold">Complete Your Profile</h1>
+            <p className="text-muted-foreground">
+              Fill out your profile card to get started with Ripl
+            </p>
+          </div>
+        )}
+
         {/* Profile Card */}
         {loading ? (
           <div className="space-y-4">
@@ -196,6 +237,15 @@ const Profile = () => {
           </Card>
         ) : (
           <div className="space-y-4">
+            {isSetupFlow && (
+              <div className="text-center mb-4">
+                <h2 className="text-lg font-semibold mb-2">Your Profile Card</h2>
+                <p className="text-sm text-muted-foreground">
+                  This is how others will see you in sessions
+                </p>
+              </div>
+            )}
+            
             {/* Profile Preview with Edit Button */}
             <div className="relative">
             <ProfilePreviewCard
@@ -204,7 +254,8 @@ const Profile = () => {
               avatarUrl={profile.avatar_url}
               linkedinUrl={profile.linkedin_profile_url}
             />
-              <Button
+              {!isSetupFlow && (
+                <Button
                 onClick={() => setEditModalOpen(true)}
                 size="sm"
                 className="absolute top-2 right-2"
@@ -212,6 +263,7 @@ const Profile = () => {
                 <Edit className="h-4 w-4 mr-1" />
                 Edit
               </Button>
+              )}
             </div>
 
             {/* Profile Stats */}
@@ -294,7 +346,8 @@ const Profile = () => {
             open={editModalOpen}
             onOpenChange={setEditModalOpen}
             profile={profile}
-            onProfileUpdate={setProfile}
+            onProfileUpdate={isSetupFlow ? handleProfileComplete : setProfile}
+            isSetupFlow={isSetupFlow}
           />
         )}
       </div>
