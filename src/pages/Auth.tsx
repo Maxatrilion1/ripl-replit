@@ -19,7 +19,8 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   
   // Check what flow to show
-  const showOnboarding = searchParams.get('method') === 'email' || window.location.pathname === '/auth/onboarding';
+  const isVerifyFlow = searchParams.get('verify') === 'true';
+  const showOnboarding = searchParams.get('method') === 'email' || window.location.pathname === '/auth/onboarding' || isVerifyFlow;
   const showLinkedInConfirm = window.location.pathname === '/auth/linkedin-confirm';
   
   // Check if we're coming from a shared session link
@@ -41,11 +42,28 @@ const Auth = () => {
   };
 
   useEffect(() => {
-    if (user && !showOnboarding && !showLinkedInConfirm) {
+    // If user is authenticated and not in a special flow, redirect to main app
+    if (user && !showOnboarding && !showLinkedInConfirm && !isVerifyFlow) {
       navigate(redirectPath);
     }
   }, [user, navigate, showOnboarding, showLinkedInConfirm, redirectPath]);
 
+  // Handle magic link verification flow
+  useEffect(() => {
+    if (isVerifyFlow && user) {
+      // User clicked magic link and is now authenticated
+      // Check if they need onboarding or can go directly to app
+      const hasProfile = user.user_metadata?.name || user.user_metadata?.full_name;
+      
+      if (!hasProfile) {
+        // Show onboarding to complete profile
+        return;
+      } else {
+        // Profile exists, redirect to main app
+        navigate(redirectPath);
+      }
+    }
+  }, [isVerifyFlow, user, navigate, redirectPath]);
   const handleMagicLinkSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -55,9 +73,8 @@ const Auth = () => {
     
     setLoading(true);
     try {
-      const finalRedirectTo = inviteCode 
-        ? `${window.location.origin}/invite/${inviteCode}`
-        : `${window.location.origin}/`;
+      // Always redirect to onboarding flow for magic link users
+      const finalRedirectTo = `${window.location.origin}/auth/onboarding?verify=true&email=${encodeURIComponent(email)}`;
       
       const result = await signInWithMagicLink(email, finalRedirectTo);
       if (!result.error) {
@@ -136,12 +153,12 @@ const Auth = () => {
             </CardContent>
           </Card>
 
-          {/* Magic Link Sign In */}
+          {/* Magic Link Sign In - Primary Method */}
           <Card>
             <CardHeader className="text-center pb-4">
-              <CardTitle className="text-lg">Sign In with Email</CardTitle>
+              <CardTitle className="text-lg">Sign In or Sign Up</CardTitle>
               <CardDescription>
-                {magicLinkSent ? 'Check your email for the magic link' : 'We\'ll send you a secure sign-in link'}
+                {magicLinkSent ? 'Check your email for the magic link' : 'Enter your email to get started - no password needed'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -189,7 +206,7 @@ const Auth = () => {
                     ) : (
                       <Mail className="w-4 h-4 mr-2" />
                     )}
-                    {loading ? 'Sending...' : 'Send Magic Link'}
+                    {loading ? 'Sending...' : 'Continue with Email'}
                   </Button>
                 </form>
               )}
