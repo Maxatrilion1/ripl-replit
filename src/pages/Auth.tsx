@@ -36,7 +36,11 @@ const Auth = () => {
     fullURL: window.location.href,
     hash: window.location.hash,
     search: window.location.search,
-    userMetadata: user?.user_metadata
+    userMetadata: user?.user_metadata,
+    appMetadata: user?.app_metadata,
+    origin: window.location.origin,
+    hostname: window.location.hostname,
+    isDeployed: window.location.hostname !== 'localhost'
   });
 
   // Cooldown timer effect
@@ -54,13 +58,21 @@ const Auth = () => {
   useEffect(() => {
     if (!authLoading && user && !isVerifyFlow) {
       console.log('🔐 Auth: User authenticated, redirecting to main app');
+      console.log('🔐 Auth: User details:', {
+        id: user.id,
+        email: user.email,
+        provider: user.app_metadata?.provider,
+        isAnonymous: user.user_metadata?.is_anonymous
+      });
       const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
+      console.log('🔐 Auth: Redirecting to:', redirectPath);
       navigate(redirectPath);
     }
   }, [user, authLoading, isVerifyFlow, navigate, inviteCode]);
 
   // Show loading while auth is initializing
   if (authLoading) {
+    console.log('🔐 Auth: Showing loading state');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -71,9 +83,12 @@ const Auth = () => {
   // Handle verification flows for authenticated users
   if (isVerifyFlow && user) {
     console.log('🔐 Auth: Verification flow detected for authenticated user');
+    console.log('🔐 Auth: User provider:', user.app_metadata?.provider);
+    console.log('🔐 Auth: Is LinkedIn method:', isLinkedInMethod);
     
     if (isLinkedInMethod) {
       // LinkedIn verification flow
+      console.log('🔐 Auth: Starting LinkedIn confirmation flow');
       const linkedInData = {
         name: user.user_metadata?.name || user.user_metadata?.full_name,
         headline: user.user_metadata?.headline,
@@ -81,22 +96,28 @@ const Auth = () => {
         email: user.email,
         profileUrl: user.user_metadata?.linkedin_url
       };
+      console.log('🔐 Auth: LinkedIn data extracted:', linkedInData);
       
       return (
         <LinkedInConfirmation 
           linkedInData={linkedInData}
           onComplete={() => {
+            console.log('🔐 Auth: LinkedIn confirmation completed');
             const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
+            console.log('🔐 Auth: Final redirect path:', redirectPath);
             navigate(redirectPath);
           }}
         />
       );
     } else {
       // Magic link verification flow
+      console.log('🔐 Auth: Starting manual onboarding flow');
       return (
         <ManualOnboarding 
           onComplete={() => {
+            console.log('🔐 Auth: Manual onboarding completed');
             const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
+            console.log('🔐 Auth: Final redirect path:', redirectPath);
             navigate(redirectPath);
           }}
         />
@@ -105,10 +126,14 @@ const Auth = () => {
   }
 
   // Show regular auth form for non-authenticated users
+  console.log('🔐 Auth: Showing auth form for non-authenticated user');
+  
   const handleMagicLinkSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔐 Auth: Magic link form submitted');
     
     if (!email.trim()) {
+      console.log('🔐 Auth: Email is empty, not proceeding');
       return;
     }
     
@@ -127,8 +152,10 @@ const Auth = () => {
       
       const result = await signInWithMagicLink(email, finalRedirectTo);
       if (!result.error) {
+        console.log('✅ Auth: Magic link sent successfully');
         setMagicLinkSent(true);
       } else {
+        console.error('❌ Auth: Magic link failed:', result.error);
         // Check if it's a rate limit error
         if (result.error.message?.includes('For security purposes, you can only request this after')) {
           const match = result.error.message.match(/after (\d+) seconds/);
@@ -146,6 +173,7 @@ const Auth = () => {
 
   const handleLinkedInSignIn = async () => {
     console.log('🔐 Auth: Starting LinkedIn sign-in');
+    console.log('🔐 Auth: Current origin:', window.location.origin);
     
     // Build redirect URL for LinkedIn
     const redirectParams = new URLSearchParams();
@@ -159,7 +187,10 @@ const Auth = () => {
     
     const result = await signInWithLinkedIn(redirectTo);
     if (result.error) {
+      console.error('❌ Auth: LinkedIn signin failed:', result.error);
       setError(result.error.message || 'LinkedIn sign-in failed. Please try again.');
+    } else {
+      console.log('✅ Auth: LinkedIn signin initiated');
     }
   };
 

@@ -117,6 +117,7 @@ const Index = () => {
 
   if (!user) {
     // Redirect unauthenticated users directly to auth
+    console.log('🔄 Auth: Redirecting to login - no authenticated user');
     navigate('/auth');
     return null;
   }

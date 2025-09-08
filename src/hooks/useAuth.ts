@@ -22,6 +22,8 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('🔐 DEBUG: useAuth setting up auth state listener...');
     console.log('🔐 DEBUG: Current URL when useAuth initializes:', window.location.href);
+    console.log('🔐 DEBUG: URL hash contains access_token:', window.location.hash.includes('access_token'));
+    console.log('🔐 DEBUG: URL search params:', window.location.search);
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -34,7 +36,9 @@ export const useAuth = () => {
           accessToken: session?.access_token?.substring(0, 20) + '...',
           refreshToken: session?.refresh_token?.substring(0, 20) + '...',
           currentURL: window.location.href,
-          userMetadata: session?.user?.user_metadata
+          userMetadata: session?.user?.user_metadata,
+          appMetadata: session?.user?.app_metadata,
+          provider: session?.user?.app_metadata?.provider
         });
         setSession(session);
         setUser(session?.user ?? null);
@@ -46,6 +50,11 @@ export const useAuth = () => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error('❌ DEBUG: useAuth error getting session:', error);
+        console.error('❌ DEBUG: Session error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
       } else {
         console.log('🔐 DEBUG: useAuth initial session check', {
           hasSession: !!session,
@@ -53,7 +62,9 @@ export const useAuth = () => {
           userEmail: session?.user?.email,
           currentURL: window.location.href,
           urlHash: window.location.hash,
-          urlSearch: window.location.search
+          urlSearch: window.location.search,
+          sessionProvider: session?.user?.app_metadata?.provider,
+          userMetadata: session?.user?.user_metadata
         });
       }
       setSession(session);
@@ -61,6 +72,7 @@ export const useAuth = () => {
       setLoading(false);
     }).catch(err => {
       console.error('❌ DEBUG: useAuth session check failed:', err);
+      console.error('❌ DEBUG: Session check exception details:', err);
       setLoading(false);
     });
 
@@ -71,7 +83,9 @@ export const useAuth = () => {
   }, []);
 
   const signUp = async (email: string, password: string, displayName?: string) => {
+    console.log('🔐 DEBUG: Starting email signup for:', email);
     const redirectUrl = `${window.location.origin}/`;
+    console.log('🔐 DEBUG: Signup redirect URL:', redirectUrl);
     
     try {
       const { error } = await supabase.auth.signUp({
@@ -87,12 +101,18 @@ export const useAuth = () => {
 
       if (error) {
         console.error('Sign up error:', error);
+        console.error('🔐 DEBUG: Signup error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
         toast({
           title: "Sign up failed",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log('✅ DEBUG: Signup successful, magic link sent');
         toast({
           title: "Check your email",
           description: "We sent you a confirmation link to complete your registration."
@@ -102,6 +122,7 @@ export const useAuth = () => {
       return { error };
     } catch (err) {
       console.error('Sign up exception:', err);
+      console.error('🔐 DEBUG: Signup exception details:', err);
       toast({
         title: "Sign up failed",
         description: "Please check your details and try again.",
@@ -112,6 +133,7 @@ export const useAuth = () => {
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔐 DEBUG: Starting email signin for:', email);
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -120,16 +142,24 @@ export const useAuth = () => {
 
       if (error) {
         console.error('Sign in error:', error);
+        console.error('🔐 DEBUG: Signin error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
         toast({
           title: "Sign in failed",
           description: error.message,
           variant: "destructive"
         });
+      } else {
+        console.log('✅ DEBUG: Email signin successful');
       }
 
       return { error };
     } catch (err) {
       console.error('Sign in exception:', err);
+      console.error('🔐 DEBUG: Signin exception details:', err);
       toast({
         title: "Sign in failed",
         description: "Please check your credentials and try again.",
@@ -140,8 +170,11 @@ export const useAuth = () => {
   };
 
   const signInWithLinkedIn = async (redirectTo?: string) => {
+    console.log('🔐 DEBUG: Starting LinkedIn signin');
+    console.log('🔐 DEBUG: LinkedIn redirect URL:', redirectTo);
     try {
       const finalRedirectTo = redirectTo || `${window.location.origin}/auth?verify=true&method=linkedin`;
+      console.log('🔐 DEBUG: Final LinkedIn redirect URL:', finalRedirectTo);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
@@ -156,16 +189,24 @@ export const useAuth = () => {
 
       if (error) {
         console.error('LinkedIn OAuth error:', error);
+        console.error('🔐 DEBUG: LinkedIn OAuth error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
         toast({
           title: "LinkedIn sign in failed",
           description: error.message,
           variant: "destructive"
         });
+      } else {
+        console.log('✅ DEBUG: LinkedIn OAuth initiated successfully');
       }
 
       return { error };
     } catch (err) {
       console.error('LinkedIn sign in exception:', err);
+      console.error('🔐 DEBUG: LinkedIn exception details:', err);
       toast({
         title: "LinkedIn sign in failed",
         description: "Please check your internet connection and try again.",
@@ -176,6 +217,7 @@ export const useAuth = () => {
   };
 
   const signInAsGuest = async (displayName?: string) => {
+    console.log('🔐 DEBUG: Starting guest signin');
     const anonymousNames = [
       'Disguised Duck',
       'Private Platypus', 
@@ -192,6 +234,8 @@ export const useAuth = () => {
     const randomName = displayName || anonymousNames[Math.floor(Math.random() * anonymousNames.length)];
     const guestEmail = `guest.${Date.now()}@ripl.guest`;
     const guestPassword = `Guest${Math.random().toString(36).slice(-8)}!`;
+    
+    console.log('🔐 DEBUG: Guest credentials generated:', { email: guestEmail, name: randomName });
 
     const { error } = await supabase.auth.signUp({
       email: guestEmail,
@@ -207,12 +251,18 @@ export const useAuth = () => {
 
     if (error) {
       console.error('Guest sign up error:', error);
+      console.error('🔐 DEBUG: Guest signup error details:', {
+        message: error.message,
+        status: error.status,
+        name: error.name
+      });
       toast({
         title: "Guest sign in failed",
         description: error.message,
         variant: "destructive"
       });
     } else {
+      console.log('✅ DEBUG: Guest signup successful');
       toast({
         title: "Welcome!",
         description: `You're now signed in as ${randomName}.`
@@ -223,7 +273,9 @@ export const useAuth = () => {
   };
 
   const signInWithMagicLink = async (email: string, redirectTo?: string) => {
+    console.log('🔐 DEBUG: Starting magic link signin for:', email);
     const finalRedirectTo = redirectTo || `${window.location.origin}/auth?verify=true`;
+    console.log('🔐 DEBUG: Magic link redirect URL:', finalRedirectTo);
     
     try {
       const { error } = await supabase.auth.signInWithOtp({
@@ -235,16 +287,24 @@ export const useAuth = () => {
 
       if (error) {
         console.error('Magic link error:', error);
+        console.error('🔐 DEBUG: Magic link error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
         toast({
           title: "Magic link failed",
           description: error.message,
           variant: "destructive"
         });
+      } else {
+        console.log('✅ DEBUG: Magic link sent successfully');
       }
 
       return { error };
     } catch (err) {
       console.error('Magic link exception:', err);
+      console.error('🔐 DEBUG: Magic link exception details:', err);
       toast({
         title: "Magic link failed", 
         description: "Please check your email and try again.",
