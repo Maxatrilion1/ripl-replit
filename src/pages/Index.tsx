@@ -116,39 +116,9 @@ const Index = () => {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-6">
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-primary to-accent flex items-center justify-center">
-                <Coffee className="w-4 h-4 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Ripl
-              </h1>
-            </div>
-            <h2 className="text-lg font-semibold text-foreground">Find Your Focus Tribe</h2>
-            <p className="text-sm text-muted-foreground">
-              Join productive cowork sessions at cafés near you
-            </p>
-          </div>
-
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <Button asChild className="w-full">
-                <Link to="/auth">
-                  Get Started
-                </Link>
-              </Button>
-              <p className="text-xs text-center text-muted-foreground">
-                Sign in to create sessions and join the community
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
+    // Redirect unauthenticated users directly to auth
+    navigate('/auth');
+    return null;
   }
 
   return (
