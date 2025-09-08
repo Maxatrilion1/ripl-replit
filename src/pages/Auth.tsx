@@ -76,16 +76,6 @@ const Auth = () => {
       navigate('/');
     }
   };
-      
-      if (!hasProfile) {
-        // Show onboarding to complete profile
-        return;
-      } else {
-        // Profile exists, redirect to main app
-        navigate(redirectPath);
-      }
-    }
-  }, [isVerifyFlow, user, navigate, redirectPath]);
 
   // Cooldown timer effect
   useEffect(() => {
