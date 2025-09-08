@@ -22,7 +22,8 @@ const Auth = () => {
   
   // Check what flow to show
   const isVerifyFlow = searchParams.get('verify') === 'true';
-  const showOnboarding = searchParams.get('method') === 'email' || window.location.pathname === '/auth/onboarding' || isVerifyFlow;
+  const isLinkedInFlow = searchParams.get('method') === 'linkedin';
+  const showOnboarding = searchParams.get('method') === 'email' || window.location.pathname === '/auth/onboarding' || (isVerifyFlow && !isLinkedInFlow);
   const showLinkedInConfirm = window.location.pathname === '/auth/linkedin-confirm';
   
   // Check if we're coming from a shared session link
@@ -52,10 +53,29 @@ const Auth = () => {
 
   // Handle magic link verification flow
   useEffect(() => {
-    if (isVerifyFlow && user) {
+    if (isVerifyFlow && user && !isLinkedInFlow) {
       // User clicked magic link and is now authenticated
-      // Check if they need onboarding or can go directly to app
-      const hasProfile = user.user_metadata?.name || user.user_metadata?.full_name;
+      // For magic link users, always show profile setup
+      return;
+    }
+    
+    if (isVerifyFlow && user && isLinkedInFlow) {
+      // LinkedIn OAuth flow - redirect to profile setup
+      const inviteCode = searchParams.get('invite');
+      const redirectPath = inviteCode ? `/invite/${inviteCode}` : '/';
+      navigate(`/profile?setup=true${inviteCode ? `&invite=${inviteCode}` : ''}`);
+    }
+  }, [isVerifyFlow, user, navigate, isLinkedInFlow, searchParams]);
+
+  // Handle profile setup completion redirect
+  const handleProfileSetupComplete = () => {
+    const inviteCode = searchParams.get('invite');
+    if (inviteCode) {
+      navigate(`/invite/${inviteCode}`);
+    } else {
+      navigate('/');
+    }
+  };
       
       if (!hasProfile) {
         // Show onboarding to complete profile
@@ -92,8 +112,8 @@ const Auth = () => {
       const inviteCode = searchParams.get('invite') || searchParams.get('code');
       const redirectParam = inviteCode ? `&invite=${inviteCode}` : '';
       
-      // Redirect to profile completion flow for magic link users
-      const finalRedirectTo = `${window.location.origin}/profile?setup=true&email=${encodeURIComponent(email)}${redirectParam}`;
+      // Redirect to auth page with verification flow for magic link users
+      const finalRedirectTo = `${window.location.origin}/auth?verify=true&email=${encodeURIComponent(email)}${redirectParam}`;
       
       const result = await signInWithMagicLink(email, finalRedirectTo);
       if (!result.error) {
@@ -119,8 +139,8 @@ const Auth = () => {
     const inviteCode = searchParams.get('invite') || searchParams.get('code');
     const redirectParam = inviteCode ? `?invite=${inviteCode}` : '';
     
-    // Redirect to profile completion flow for LinkedIn users
-    const redirectTo = `${window.location.origin}/profile?setup=true${redirectParam}`;
+    // Redirect to auth page with verification flow for LinkedIn users  
+    const redirectTo = `${window.location.origin}/auth?verify=true&method=linkedin${redirectParam}`;
     
     const result = await signInWithLinkedIn(redirectTo);
   };
@@ -138,7 +158,7 @@ const Auth = () => {
 
   // Show onboarding if requested
   if (showOnboarding) {
-    return <ManualOnboarding />;
+    return <ManualOnboarding onComplete={handleProfileSetupComplete} />;
   }
 
   return (

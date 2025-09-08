@@ -40,7 +40,6 @@ const App = () => {
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/onboarding" element={<Auth />} />
-            <Route path="/auth/linkedin-confirm" element={<Auth />} />
             <Route path="/invite/:code" element={<Invite />} />
             <Route path="/preview/:slug" element={<SessionPreview />} />
             <Route path="/" element={<Index />} />

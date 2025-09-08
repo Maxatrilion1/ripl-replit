@@ -20,6 +20,10 @@ interface OnboardingData {
   step: number;
 }
 
+interface ManualOnboardingProps {
+  onComplete?: () => void;
+}
+
 // Step definitions - reordered: Name, Title, Photo, Email
 const STEPS = [
   {
@@ -50,7 +54,7 @@ const STEPS = [
 
 const STORAGE_KEY = 'ripl_onboarding_progress';
 
-const ManualOnboarding = () => {
+const ManualOnboarding = ({ onComplete }: ManualOnboardingProps) => {
   const { user, signInWithMagicLink, enrichProfileFromAuth } = useAuth();
   const { track } = useAnalytics();
   const navigate = useNavigate();
@@ -387,10 +391,14 @@ const ManualOnboarding = () => {
         description: "Your profile has been set up successfully."
       });
 
-      // Navigate to home or redirect URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const redirect = urlParams.get('redirect');
-      navigate(redirect || '/');
+      // Call completion handler if provided, otherwise navigate
+      if (onComplete) {
+        onComplete();
+      } else {
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirect = urlParams.get('redirect');
+        navigate(redirect || '/');
+      }
 
     } catch (error: any) {
       console.error('Profile update error:', error);
