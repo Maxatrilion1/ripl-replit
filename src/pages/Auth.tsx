@@ -148,7 +148,7 @@ const Auth = () => {
 
   // Show onboarding if requested
   if (showOnboarding) {
-    return <ManualOnboarding onComplete={handleProfileSetupComplete} />;
+    return <ManualOnboarding />;
   }
 
   return (
