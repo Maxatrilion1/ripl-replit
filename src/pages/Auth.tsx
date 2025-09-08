@@ -14,6 +14,8 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [error, setError] = useState('');
   const { user, session, signInWithMagicLink, signInWithLinkedIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -64,6 +66,18 @@ const Auth = () => {
       }
     }
   }, [isVerifyFlow, user, navigate, redirectPath]);
+
+  // Cooldown timer effect
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (cooldown > 0) {
+      timer = setTimeout(() => {
+        setCooldown(cooldown - 1);
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
   const handleMagicLinkSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -72,6 +86,7 @@ const Auth = () => {
     }
     
     setLoading(true);
+    setError('');
     try {
       // Always redirect to onboarding flow for magic link users
       const finalRedirectTo = `${window.location.origin}/auth/onboarding?verify=true&email=${encodeURIComponent(email)}`;
@@ -79,6 +94,16 @@ const Auth = () => {
       const result = await signInWithMagicLink(email, finalRedirectTo);
       if (!result.error) {
         setMagicLinkSent(true);
+      } else {
+        // Check if it's a rate limit error
+        if (result.error.message?.includes('For security purposes, you can only request this after')) {
+          const match = result.error.message.match(/after (\d+) seconds/);
+          const seconds = match ? parseInt(match[1]) : 60;
+          setCooldown(seconds);
+          setError(`Please wait ${seconds} seconds before requesting another magic link.`);
+        } else {
+          setError(result.error.message || 'Failed to send magic link. Please try again.');
+        }
       }
     } finally {
       setLoading(false);
@@ -184,6 +209,11 @@ const Auth = () => {
                 </div>
               ) : (
                 <form onSubmit={handleMagicLinkSignIn} className="space-y-4">
+                  {error && (
+                    <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                      {error}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="magic-email">Email Address</Label>
                     <Input
@@ -199,14 +229,16 @@ const Auth = () => {
                   <Button 
                     type="submit" 
                     className="w-full"
-                    disabled={loading || !email.trim()}
+                    disabled={loading || !email.trim() || cooldown > 0}
                   >
                     {loading ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                    ) : cooldown > 0 ? (
+                      <span>Wait {cooldown}s</span>
                     ) : (
                       <Mail className="w-4 h-4 mr-2" />
                     )}
-                    {loading ? 'Sending...' : 'Continue with Email'}
+                    {loading ? 'Sending...' : cooldown > 0 ? `Wait ${cooldown}s` : 'Continue with Email'}
                   </Button>
                 </form>
               )}
