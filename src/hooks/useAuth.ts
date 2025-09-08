@@ -20,15 +20,21 @@ export const useAuth = () => {
   console.log('🔐 useAuth: Hook initializing...');
 
   useEffect(() => {
-    console.log('🔐 useAuth: Setting up auth state listener...');
+    console.log('🔐 DEBUG: useAuth setting up auth state listener...');
+    console.log('🔐 DEBUG: Current URL when useAuth initializes:', window.location.href);
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('🔐 useAuth: Auth state changed', {
+        console.log('🔐 DEBUG: Auth state changed', {
           event,
           hasUser: !!session?.user,
           userId: session?.user?.id,
+          userEmail: session?.user?.email,
+          accessToken: session?.access_token?.substring(0, 20) + '...',
+          refreshToken: session?.refresh_token?.substring(0, 20) + '...',
+          currentURL: window.location.href,
+          userMetadata: session?.user?.user_metadata
         });
         setSession(session);
         setUser(session?.user ?? null);
@@ -39,23 +45,27 @@ export const useAuth = () => {
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
-        console.error('❌ useAuth: Error getting session:', error);
+        console.error('❌ DEBUG: useAuth error getting session:', error);
       } else {
-        console.log('🔐 useAuth: Initial session check', {
+        console.log('🔐 DEBUG: useAuth initial session check', {
           hasSession: !!session,
           userId: session?.user?.id,
+          userEmail: session?.user?.email,
+          currentURL: window.location.href,
+          urlHash: window.location.hash,
+          urlSearch: window.location.search
         });
       }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     }).catch(err => {
-      console.error('❌ useAuth: Session check failed:', err);
+      console.error('❌ DEBUG: useAuth session check failed:', err);
       setLoading(false);
     });
 
     return () => {
-      console.log('🔐 useAuth: Cleaning up subscription');
+      console.log('🔐 DEBUG: useAuth cleaning up subscription');
       subscription.unsubscribe();
     };
   }, []);

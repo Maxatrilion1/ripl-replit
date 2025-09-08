@@ -25,14 +25,18 @@ const Auth = () => {
   const emailParam = searchParams.get('email');
   const inviteCode = searchParams.get('invite');
   
-  console.log('🔐 Auth: Component state', {
+  console.log('🔐 DEBUG: Auth component state', {
     user: !!user,
     authLoading,
     isVerifyFlow,
     isLinkedInMethod,
     emailParam,
     inviteCode,
-    pathname: window.location.pathname
+    pathname: window.location.pathname,
+    fullURL: window.location.href,
+    hash: window.location.hash,
+    search: window.location.search,
+    userMetadata: user?.user_metadata
   });
 
   // Cooldown timer effect
